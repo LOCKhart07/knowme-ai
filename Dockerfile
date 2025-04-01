@@ -1,31 +1,35 @@
-# Use an official Python runtime as a parent image
+# Stage 1: Install dependencies
+FROM python:3.11-slim AS builder
+
+WORKDIR /code
+COPY ./requirements.txt /code/requirements.txt
+
+# Install dependencies system-wide to /usr/local
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+# Stage 2: Final Image
 FROM python:3.11-slim
 
 # Create a non-root user
 RUN useradd -m knowme-ai-user
 
-# Set the working directory to /code and change ownership
 WORKDIR /code
 RUN chown -R knowme-ai-user:knowme-ai-user /code
 
 # Switch to the non-root user
 USER knowme-ai-user
 
-# Copy and install dependencies
-COPY --chown=knowme-ai-user:knowme-ai-user ./requirements.txt /code/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt --user --no-warn-script-location # Install in user directory
+# Copy installed dependencies from the builder stage
+COPY --from=builder /usr/local /usr/local
 
 # Copy application code
 COPY --chown=knowme-ai-user:knowme-ai-user ./app /code/app
 
-# Ensure user-installed packages are in PATH
-ENV PATH="/home/knowme-ai-user/.local/bin:${PATH}"
-
 # Expose the port
-EXPOSE 9000
+EXPOSE 7000
 
 # Set the maintainer
 LABEL maintainer="Jenslee Dsouza <dsouzajenslee@gmail.com>"
 
-# Start Uvicorn with the root path
+# Start Uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7000", "--proxy-headers"]
