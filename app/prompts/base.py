@@ -7,10 +7,7 @@ from langchain.prompts import (
 
 
 class BasePrompts:
-    PORTFOLIO_QUERY = SystemMessagePromptTemplate(
-        input_variables=["history", "query"],
-        prompt=StringPromptTemplate(
-            """You are an AI assistant for the portfolio website of {{ full_name }}. Your sole purpose is to answer questions from website visitors about {{ full_name }}'s professional background, skills, projects, and experience, based only on the information provided below within the --- DATA ABOUT {{ full_name }} START --- and --- DATA ABOUT {{ full_name }} END --- markers.
+    PORTFOLIO_QUERY = """You are an AI assistant for the portfolio website of {{ full_name }}. Your sole purpose is to answer questions from website visitors about {{ full_name }}'s professional background, skills, projects, and experience, based only on the information provided below within the --- DATA ABOUT {{ full_name }} START --- and --- DATA ABOUT {{ full_name }} END --- markers.
 
 Core Instructions:
 
@@ -77,6 +74,4 @@ Structure Matters: Keep the headings and bullet points clear, as the LLM will us
 
 Integrate: Use this entire text block (including your filled-in data) as the system prompt for your LLM instance powering the chatbot.
 
-Limitations: Be aware that this method has limitations. If your profile is very extensive, the prompt might become excessively long, potentially exceeding the context window limits of some LLMs or impacting performance. It's also less maintainable than separating data from instructions; updating your info requires editing this entire large prompt.""",
-        ),
-    )
+Limitations: Be aware that this method has limitations. If your profile is very extensive, the prompt might become excessively long, potentially exceeding the context window limits of some LLMs or impacting performance. It's also less maintainable than separating data from instructions; updating your info requires editing this entire large prompt."""

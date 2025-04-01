@@ -2,9 +2,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 import traceback
 from ..prompts import BasePrompts
-from ..models import ChatHistory, Message
+from ..models import ChatHistory
 from .info_service import InfoService
-from langchain_core.prompts.chat import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 load_dotenv()
 
@@ -15,17 +15,25 @@ class LLMService:
             model="gemini-2.0-flash-lite", temperature=0.7
         )
         self.resume_service = InfoService()
-        self.chain = BasePrompts.PORTFOLIO_QUERY | self.llm
         self._resume = None
         self._full_name = None
         self._summary = None
         self._skills = None
         self._languages = None
-        self.experience = None
-        self.projects = None
-        self.education = None
-        self.certifications = None
-        self.contact_details = None
+        self._experience = None
+        self._projects = None
+        self._education = None
+        self._certifications = None
+        self._contact_details = None
+
+        self.messages_template = ChatPromptTemplate.from_messages(
+            [
+                ("system", BasePrompts.PORTFOLIO_QUERY),
+                MessagesPlaceholder("history", optional=True),
+                ("user", "{{ input }}"),
+            ],
+            template_format="mustache",
+        )
 
     async def _ensure_all_details(self):
         """Ensure all resume details are loaded"""
@@ -39,32 +47,16 @@ class LLMService:
             self._skills = await self.resume_service.fetch_skills()
         if self._languages is None:
             self._languages = await self.resume_service.fetch_languages()
-        if self.experience is None:
-            self.experience = await self.resume_service.fetch_experience()
-        if self.projects is None:
-            self.projects = await self.resume_service.fetch_projects()
-        if self.education is None:
-            self.education = await self.resume_service.fetch_education()
-        if self.certifications is None:
-            self.certifications = await self.resume_service.fetch_certifications()
-        if self.contact_details is None:
-            self.contact_details = await self.resume_service.fetch_contact_details()
-
-        # Update the prompt with resume data
-        self.chain = (
-            BasePrompts.PORTFOLIO_QUERY.partial(
-                full_name=self._full_name,
-                summary=self._summary,
-                skills=self._skills,
-                languages=self._languages,
-                experience=self.experience,
-                projects=self.projects,
-                education=self.education,
-                certifications=self.certifications,
-                contact_details=self.contact_details,
-            )
-            | self.llm
-        )
+        if self._experience is None:
+            self._experience = await self.resume_service.fetch_experience()
+        if self._projects is None:
+            self._projects = await self.resume_service.fetch_projects()
+        if self._education is None:
+            self._education = await self.resume_service.fetch_education()
+        if self._certifications is None:
+            self._certifications = await self.resume_service.fetch_certifications()
+        if self._contact_details is None:
+            self._contact_details = await self.resume_service.fetch_contact_details()
 
     async def process_query(
         self, query: str, history: ChatHistory = None
@@ -73,27 +65,32 @@ class LLMService:
             # Ensure resume text is loaded
             await self._ensure_all_details()
 
-            # Format the chat history
-            formatted_history = BasePrompts.format_history(
-                history.messages if history else []
+            messages = self.messages_template.invoke(
+                {
+                    "full_name": self._full_name,
+                    "summary": self._summary,
+                    "skills": self._skills,
+                    "languages": self._languages,
+                    "experience": self._experience,
+                    "projects": self._projects,
+                    "education": self._education,
+                    "certifications": self._certifications,
+                    "contact_details": self._contact_details,
+                    "history": self._format_history(history),
+                    "resume": self._resume,
+                    "input": query,
+                }
             )
 
             # Get response from LLM
-            response = self.chain.invoke({"history": formatted_history, "query": query})
-
-            # Create new message for the response
-            new_message = Message(role="assistant", content=response.content)
-
-            # Update chat history
-            if history:
-                history.messages.append(Message(role="user", content=query))
-                history.messages.append(new_message)
-            else:
-                history = ChatHistory(
-                    messages=[Message(role="user", content=query), new_message]
-                )
-
+            response = self.llm.invoke(messages)
             return response.content, history
         except Exception as e:
             traceback.print_exc()
             raise Exception(f"Error processing query: {str(e)}")
+
+    @staticmethod
+    def _format_history(history: ChatHistory) -> str:
+        if history is None:
+            return []
+        return [(msg.role, msg.content) for msg in history.messages]

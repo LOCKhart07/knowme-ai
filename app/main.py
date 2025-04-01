@@ -32,7 +32,7 @@ def ping():
     return PongResponse(message="pong")
 
 
-@app.post("/query", response_model=QueryResponse)
+@app.post("/chat", response_model=QueryResponse)
 async def process_query(query_request: QueryRequest):
     try:
         response, history = await llm_service.process_query(
