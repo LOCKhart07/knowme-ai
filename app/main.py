@@ -44,7 +44,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[
             "https://portfolio.lockhart.in",
-            "https://portfolio-jenslee.netlify.app/",
+            "https://portfolio-jenslee.netlify.app",
             "http://localhost:3000",
         ],
         allow_credentials=True,
