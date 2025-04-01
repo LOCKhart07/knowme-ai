@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, Tuple, List, AsyncGenerator
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import BaseMessage
@@ -218,6 +218,53 @@ class LLMService:
             logger.error(f"Error processing query: {str(e)}")
             logger.error(traceback.format_exc())
             raise Exception(f"Error processing query: {str(e)}") from e
+
+    async def process_query_stream(
+        self, query: str, history: Optional[ChatHistory] = None
+    ) -> AsyncGenerator[str, None]:
+        """
+        Process a chat query and stream the response chunks.
+
+        Args:
+            query (str): The user's query text
+            history (Optional[ChatHistory]): Optional chat history for context
+
+        Yields:
+            str: Chunks of the AI's response
+
+        Raises:
+            Exception: If there's an error processing the query
+        """
+        try:
+            # Ensure resume text is loaded
+            await self._ensure_all_details()
+
+            # Prepare messages for the LLM
+            messages = self.messages_template.invoke(
+                {
+                    "full_name": self.details.full_name,
+                    "summary": self.details.summary,
+                    "skills": self.details.skills,
+                    "languages": self.details.languages,
+                    "experience": self.details.experience,
+                    "projects": self.details.projects,
+                    "education": self.details.education,
+                    "certifications": self.details.certifications,
+                    "contact_details": self.details.contact_details,
+                    "history": self._format_history(history),
+                    "resume": self.details.resume_text,
+                    "input": query,
+                }
+            )
+
+            # Stream response from LLM
+            async for chunk in self.llm.astream(messages):
+                yield chunk.content
+
+        except Exception as e:
+            logger.error(f"Error processing streaming query: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise Exception(f"Error processing streaming query: {str(e)}") from e
 
     @staticmethod
     def _format_history(history: Optional[ChatHistory]) -> List[Tuple[str, str]]:

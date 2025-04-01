@@ -74,3 +74,16 @@ class QueryResponse(BaseModel):
 
     response: str = Field(..., description="AI's response to the query")
     history: ChatHistory = Field(..., description="Updated chat history")
+
+
+class StreamingResponse(BaseModel):
+    """
+    Response model for streaming chat responses.
+
+    Attributes:
+        chunk (str): A chunk of the AI's response
+        is_final (bool): Whether this is the final chunk
+    """
+
+    chunk: str = Field(..., description="A chunk of the AI's response")
+    is_final: bool = Field(..., description="Whether this is the final chunk")

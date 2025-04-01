@@ -1,11 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from dotenv import load_dotenv
 import logging
 import traceback
 from typing import Dict, Any
-from .models import QueryRequest, PongResponse, QueryResponse
+from .models import (
+    QueryRequest,
+    PongResponse,
+    QueryResponse,
+    StreamingResponse as StreamingResponseModel,
+)
 from .services.llm_service import LLMService
 
 # Configure logging
@@ -60,10 +65,10 @@ async def ping() -> PongResponse:
     return PongResponse(message="pong")
 
 
-@app.post("/chat", response_model=QueryResponse, tags=["Chat"])
-async def process_query(query_request: QueryRequest) -> QueryResponse:
+@app.post("/chat/complete", response_model=QueryResponse, tags=["Chat"])
+async def process_query_complete(query_request: QueryRequest) -> QueryResponse:
     """
-    Process a chat query and return the response.
+    Process a chat query and return the complete response.
 
     Args:
         query_request (QueryRequest): The chat query request containing the user's message and chat history
@@ -81,6 +86,43 @@ async def process_query(query_request: QueryRequest) -> QueryResponse:
         return QueryResponse(response=response, history=history)
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Internal server error", "message": str(e)},
+        )
+
+
+@app.post("/chat/stream", response_model=StreamingResponseModel, tags=["Chat"])
+async def process_query_stream(query_request: QueryRequest):
+    """
+    Process a chat query and stream the response chunks.
+
+    Args:
+        query_request (QueryRequest): The chat query request containing the user's message and chat history
+
+    Returns:
+        StreamingResponse: A stream of response chunks
+
+    Raises:
+        HTTPException: If there's an error processing the query
+    """
+    try:
+
+        async def generate():
+            async for chunk in llm_service.process_query_stream(
+                query_request.query, query_request.history
+            ):
+                yield StreamingResponseModel(
+                    chunk=chunk, is_final=False
+                ).model_dump_json() + "\n"
+            yield StreamingResponseModel(
+                chunk="", is_final=True
+            ).model_dump_json() + "\n"
+
+        return StreamingResponse(generate(), media_type="application/x-ndjson")
+    except Exception as e:
+        logger.error(f"Error processing streaming query: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
