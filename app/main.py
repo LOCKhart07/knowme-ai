@@ -127,7 +127,11 @@ async def process_query_stream(query_request: QueryRequest):
                 chunk="", is_final=True
             ).model_dump_json() + "\n"
 
-        return StreamingResponse(generate(), media_type="application/x-ndjson")
+        return StreamingResponse(
+            generate(),
+            media_type="application/x-ndjson",
+            headers={"X-Accel-Buffering": "no"},
+        )
     except Exception as e:
         logger.error(f"Error processing streaming query: {str(e)}")
         logger.error(traceback.format_exc())
