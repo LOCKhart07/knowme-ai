@@ -73,8 +73,8 @@ The API will be available at `http://localhost:8000`
 ## API Endpoints
 
 - `GET /ping`: Health check endpoint
-- `POST /chat/complete`: Process a chat query and get complete AI response
-- `POST /chat/stream`: Process a chat query and get streaming AI response chunks
+- `POST /knowme-ai/api/chat/complete`: Process a chat query and get complete AI response
+- `POST /knowme-ai/api/chat/stream`: Process a chat query and get streaming AI response chunks
 
 ## API Documentation
 

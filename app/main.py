@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from dotenv import load_dotenv
@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# Create router for chat endpoints
+chat_router = APIRouter(prefix="/knowme-ai/api")
 
 
 def create_app() -> FastAPI:
@@ -45,6 +48,22 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://portfolio.lockhart.in",
+            "https://portfolio-jenslee.netlify.app/",
+            "http://localhost:3000",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Include routers
+    app.include_router(chat_router)
+
     return app
 
 
@@ -65,7 +84,7 @@ async def ping() -> PongResponse:
     return PongResponse(message="pong")
 
 
-@app.post("/chat/complete", response_model=QueryResponse, tags=["Chat"])
+@chat_router.post("/chat/complete", response_model=QueryResponse, tags=["Chat"])
 async def process_query_complete(query_request: QueryRequest) -> QueryResponse:
     """
     Process a chat query and return the complete response.
@@ -93,7 +112,7 @@ async def process_query_complete(query_request: QueryRequest) -> QueryResponse:
         )
 
 
-@app.post("/chat/stream", response_model=StreamingResponseModel, tags=["Chat"])
+@chat_router.post("/chat/stream", response_model=StreamingResponseModel, tags=["Chat"])
 async def process_query_stream(query_request: QueryRequest):
     """
     Process a chat query and stream the response chunks.
