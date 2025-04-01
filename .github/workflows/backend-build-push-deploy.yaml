@@ -1,0 +1,67 @@
+name: Docker Image CI/CD
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha
+            type=raw,value=latest
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6.9.0
+        with:
+          platforms: linux/arm64/v8
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Oracle
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USERNAME }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            sudo mkdir -p /tmp/${{ github.repository }}
+            sudo curl -L https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yaml -o /tmp/${{ github.repository }}/docker-compose.yaml
+            cd /tmp/${{ github.repository }}
+            sudo REDIS_HOST=${{ secrets.REDIS_HOST }} REDIS_PORT=${{ secrets.REDIS_PORT }} REDIS_USERNAME=${{ secrets.REDIS_USERNAME }} REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} DATOCMS_API_TOKEN=${{ secrets.DATOCMS_API_TOKEN }} docker compose up -d
+            # This checks if the directory exists before attempting to remove it
+            # It ensures that only the specific temporary directory is removed, preventing accidental deletion of other files or directories
+            if [ -d /tmp/${{ github.repository }} ]; then
+                sudo rm -rf /tmp/${{ github.repository }}
+            fi

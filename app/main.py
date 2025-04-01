@@ -1,50 +1,117 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+import logging
 import traceback
+from typing import Dict, Any
 from .models import QueryRequest, PongResponse, QueryResponse
 from .services.llm_service import LLMService
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(
-    title="KnowMe AI",
-    description="A customizable chatbot powered by an LLM that dynamically answers questions about a user's career, skills, and background. Designed for seamless integration with various data sources to generate personalized responses.",
-    version="1.0.0",
-)
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def create_app() -> FastAPI:
+    """
+    Create and configure the FastAPI application.
+
+    Returns:
+        FastAPI: Configured FastAPI application instance
+    """
+    app = FastAPI(
+        title="KnowMe AI",
+        description="A customizable chatbot powered by an LLM that dynamically answers questions about a user's career, skills, and background. Designed for seamless integration with various data sources to generate personalized responses.",
+        version="1.0.0",
+    )
+
+    # Configure CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    return app
+
+
+app = create_app()
 
 # Initialize services
 llm_service = LLMService()
 
 
-@app.get("/ping", response_model=PongResponse)
-def ping():
+@app.get("/ping", response_model=PongResponse, tags=["Health"])
+async def ping() -> PongResponse:
+    """
+    Health check endpoint.
+
+    Returns:
+        PongResponse: Simple response to verify the service is running
+    """
     return PongResponse(message="pong")
 
 
-@app.post("/chat", response_model=QueryResponse)
-async def process_query(query_request: QueryRequest):
+@app.post("/chat", response_model=QueryResponse, tags=["Chat"])
+async def process_query(query_request: QueryRequest) -> QueryResponse:
+    """
+    Process a chat query and return the response.
+
+    Args:
+        query_request (QueryRequest): The chat query request containing the user's message and chat history
+
+    Returns:
+        QueryResponse: The AI's response and updated chat history
+
+    Raises:
+        HTTPException: If there's an error processing the query
+    """
     try:
         response, history = await llm_service.process_query(
             query_request.query, query_request.history
         )
         return QueryResponse(response=response, history=history)
     except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error processing query: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Internal server error", "message": str(e)},
+        )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc: Exception) -> JSONResponse:
+    """
+    Global exception handler for unhandled exceptions.
+
+    Args:
+        request: The request that caused the exception
+        exc (Exception): The unhandled exception
+
+    Returns:
+        JSONResponse: A formatted error response
+    """
+    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "message": "An unexpected error occurred",
+        },
+    )
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=7000)
+    uvicorn.run(app, host="0.0.0.0", port=7000, log_level="info")
