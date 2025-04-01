@@ -1,0 +1,28 @@
+services:
+  knowme-ai:
+    container_name: knowme-ai
+    image: ghcr.io/lockhart07/knowme-ai:latest
+    pull_policy: always
+    tty: true
+    stdin_open: true
+    ports:
+      - "7000:7000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import requests; r=requests.get('http://localhost:9000/ping'); r.raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_USERNAME=${REDIS_USERNAME}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DATOCMS_API_TOKEN=${DATOCMS_API_TOKEN}
+    networks:
+      - backend
+      
+networks:
+  backend:
+    driver: bridge
