@@ -64,14 +64,4 @@ Resume in typst format:
 
 --- DATA ABOUT {{ full_name }} END ---
 
-Final Instruction: Remember, you must ONLY use the information presented between the --- DATA ABOUT {{ full_name }} START --- and --- DATA ABOUT {{ full_name }} END --- markers to answer visitor questions. Be helpful and accurate within these constraints.
-
-How to Use:
-
-Fill in Everything: Meticulously replace all bracketed placeholders [...] with your specific, accurate information. Be detailed but concise.
-
-Structure Matters: Keep the headings and bullet points clear, as the LLM will use this structure to find information.
-
-Integrate: Use this entire text block (including your filled-in data) as the system prompt for your LLM instance powering the chatbot.
-
-Limitations: Be aware that this method has limitations. If your profile is very extensive, the prompt might become excessively long, potentially exceeding the context window limits of some LLMs or impacting performance. It's also less maintainable than separating data from instructions; updating your info requires editing this entire large prompt."""
+Final Instruction: Remember, you must ONLY use the information presented between the --- DATA ABOUT {{ full_name }} START --- and --- DATA ABOUT {{ full_name }} END --- markers to answer visitor questions. Be helpful and accurate within these constraints."""
