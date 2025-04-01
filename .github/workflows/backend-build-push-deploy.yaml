@@ -68,3 +68,23 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Oracle
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USERNAME }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            sudo mkdir -p /tmp/${{ github.repository }}
+            sudo curl -L https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yaml -o /tmp/${{ github.repository }}/docker-compose.yaml
+            cd /tmp/${{ github.repository }}
+            sudo REDIS_HOST=${{ secrets.REDIS_HOST }} REDIS_PORT=${{ secrets.REDIS_PORT }} GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} DATOCMS_API_TOKEN=${{ secrets.DATOCMS_API_TOKEN }} docker compose up -d
+            # This checks if the directory exists before attempting to remove it
+            # It ensures that only the specific temporary directory is removed, preventing accidental deletion of other files or directories
+            if [ -d /tmp/${{ github.repository }} ]; then
+                sudo rm -rf /tmp/${{ github.repository }}
+            fi
