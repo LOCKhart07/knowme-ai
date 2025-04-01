@@ -61,9 +61,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Include routers
-    app.include_router(chat_router)
-
     return app
 
 
@@ -170,6 +167,10 @@ async def global_exception_handler(request, exc: Exception) -> JSONResponse:
             "message": "An unexpected error occurred",
         },
     )
+
+
+# Include routers after all route definitions
+app.include_router(chat_router)
 
 
 if __name__ == "__main__":
