@@ -8,7 +8,7 @@ services:
     ports:
       - "7000:7000"
     healthcheck:
-      test: ["CMD", "python3", "-c", "import requests; r=requests.get('http://localhost:9000/ping'); r.raise_for_status()"]
+      test: ["CMD", "python3", "-c", "import requests; r=requests.get('http://localhost:7000/ping'); r.raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 5
