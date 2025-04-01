@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
+from datetime import datetime
 
 
 class MessageRole(str, Enum):
@@ -18,10 +19,15 @@ class Message(BaseModel):
     Attributes:
         role (MessageRole): The role of the message sender (user, assistant, or system)
         content (str): The content of the message
+        timestamp (datetime): The timestamp when the message was sent
     """
 
     role: MessageRole = Field(..., description="Role of the message sender")
     content: str = Field(..., description="Content of the message")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp when the message was sent",
+    )
 
 
 class ChatHistory(BaseModel):

@@ -299,10 +299,10 @@ class LLMService:
         if history is None:
             history = ChatHistory(messages=[])
 
-        # Add user query
+        # Add user query with timestamp
         history.messages.append(Message(role=MessageRole.USER, content=query))
 
-        # Add AI response
+        # Add AI response with timestamp
         history.messages.append(Message(role=MessageRole.ASSISTANT, content=response))
 
         return history
