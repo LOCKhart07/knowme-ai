@@ -12,6 +12,7 @@ A customizable chatbot powered by Google's Gemini LLM that dynamically answers q
 - 🔒 Secure API key management
 - 📚 Comprehensive API documentation
 - 🌐 CORS enabled for cross-origin requests
+- 🐳 Docker support for easy deployment
 
 ## Tech Stack
 
@@ -27,6 +28,7 @@ A customizable chatbot powered by Google's Gemini LLM that dynamically answers q
 - Redis server
 - Google API key
 - DatoCMS API token
+- Docker (optional, for containerized deployment)
 
 ## Setup
 
@@ -63,12 +65,19 @@ REDIS_PASSWORD=your_redis_password
 
 ## Running the Application
 
+### Local Development
 Start the server:
 ```bash
 uvicorn app.main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`
+
+### Docker Deployment
+Build and run using Docker Compose:
+```bash
+docker-compose up --build
+```
 
 ## API Endpoints
 
@@ -87,16 +96,32 @@ Once the server is running, you can access:
 ```
 knowme-ai/
 ├── app/
-│   ├── models.py          # Data models
-│   ├── main.py           # FastAPI application
-│   ├── prompts/          # LLM prompts
+│   ├── models.py          # Data models and schemas
+│   ├── main.py           # FastAPI application and routes
+│   ├── prompts/          # LLM prompt templates
 │   └── services/         # Business logic
-│       ├── llm_service.py    # LLM integration
-│       ├── info_service.py   # Resume info service
-│       └── redis_service.py  # Redis caching
+│       ├── llm_service.py    # Gemini LLM integration
+│       ├── info_service.py   # Resume info and DatoCMS service
+│       └── redis_service.py  # Redis caching service
 ├── requirements.txt      # Python dependencies
+├── docker-compose.yaml   # Docker Compose configuration
+├── Dockerfile           # Docker build configuration
+├── playground.ipynb     # Development and testing notebook
 └── .env                 # Environment variables
 ```
+
+## Dependencies
+
+Main project dependencies:
+- fastapi==0.115.12
+- uvicorn==0.34.0
+- redis==5.2.1
+- langchain==0.3.22
+- langchain-community==0.3.20
+- langchain-google-genai==2.1.2
+- pydantic>=2.5.2
+- python-dotenv==1.0.0
+- requests==2.31.0
 
 ## Features in Detail
 
@@ -127,6 +152,11 @@ The system dynamically fetches and caches various aspects of your resume:
 - Two response modes:
   - Complete response: Get the full AI response at once
   - Streaming response: Receive response chunks in real-time for better user experience
+
+### Development Tools
+- `playground.ipynb`: Jupyter notebook for development, testing, and experimentation
+- Docker support for containerized deployment
+- Comprehensive API documentation
 
 ## Contributing
 
