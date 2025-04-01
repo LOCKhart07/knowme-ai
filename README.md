@@ -73,7 +73,8 @@ The API will be available at `http://localhost:8000`
 ## API Endpoints
 
 - `GET /ping`: Health check endpoint
-- `POST /chat`: Process a chat query and get AI response
+- `POST /chat/complete`: Process a chat query and get complete AI response
+- `POST /chat/stream`: Process a chat query and get streaming AI response chunks
 
 ## API Documentation
 
@@ -122,6 +123,10 @@ The system dynamically fetches and caches various aspects of your resume:
 - Context-aware responses
 - Personalized information delivery
 - Error handling and logging
+- Streaming response support for real-time updates
+- Two response modes:
+  - Complete response: Get the full AI response at once
+  - Streaming response: Receive response chunks in real-time for better user experience
 
 ## Contributing
 
