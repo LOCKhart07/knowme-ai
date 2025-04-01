@@ -16,8 +16,6 @@ services:
     environment:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
-      - REDIS_USERNAME=${REDIS_USERNAME}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - DATOCMS_API_TOKEN=${DATOCMS_API_TOKEN}
     networks:

@@ -22,14 +22,17 @@ class RedisService:
     def __init__(self):
         """Initialize Redis connection."""
         try:
-            self.redis_client = redis.Redis(
-                host=os.getenv("REDIS_HOST", "localhost"),
-                port=int(os.getenv("REDIS_PORT", 6379)),
-                db=int(os.getenv("REDIS_DB", 0)),
-                username=os.getenv("REDIS_USERNAME"),
-                password=os.getenv("REDIS_PASSWORD"),
-                decode_responses=True,
-            )
+            redis_kwargs = {
+                "host": os.getenv("REDIS_HOST", "localhost"),
+                "port": int(os.getenv("REDIS_PORT", 6379)),
+                "db": int(os.getenv("REDIS_DB", 0)),
+                "decode_responses": True,
+            }
+            if os.getenv("REDIS_USERNAME") and os.getenv("REDIS_PASSWORD"):
+                redis_kwargs["username"] = os.getenv("REDIS_USERNAME")
+                redis_kwargs["password"] = os.getenv("REDIS_PASSWORD")
+
+            self.redis_client = redis.Redis(**redis_kwargs)
             # Test connection
             self.redis_client.ping()
             logger.info("Successfully connected to Redis")
