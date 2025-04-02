@@ -22,6 +22,7 @@ services:
       - LANGSMITH_ENDPOINT=${LANGSMITH_ENDPOINT}
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
       - LANGSMITH_PROJECT=${LANGSMITH_PROJECT}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
 
     networks:
       - backend

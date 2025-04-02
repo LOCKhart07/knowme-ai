@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import logging
 import traceback
 from dataclasses import dataclass
+import os
 
 from ..prompts import BasePrompts
 from ..models import ChatHistory, Message, MessageRole
@@ -60,17 +61,19 @@ class LLMService:
     resume information retrieval and chat history management.
     """
 
-    def __init__(
-        self, model_name: str = "gemini-2.0-flash-lite", temperature: float = 0.7
-    ):
+    def __init__(self, model_name: str = None, temperature: float = 0.7):
         """
         Initialize the LLM service.
 
         Args:
-            model_name (str): Name of the LLM model to use
+            model_name (str, optional): Name of the LLM model to use. If not provided,
+                                      will use GEMINI_MODEL environment variable or default to "gemini-2.0-flash-lite"
             temperature (float): Temperature parameter for the LLM
         """
-        self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
+        self.llm = ChatGoogleGenerativeAI(
+            model=model_name or os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
+            temperature=temperature,
+        )
         self.resume_service = InfoService()
         self.redis_service = RedisService()
         self.details = ResumeDetails()

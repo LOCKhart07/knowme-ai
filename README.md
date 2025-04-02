@@ -54,6 +54,7 @@ Create a `.env` file in the root directory with the following variables:
 ```env
 GOOGLE_API_KEY=your_google_api_key
 DATOCMS_API_TOKEN=your_dato_cms_token
+GEMINI_MODEL=your_gemini_model_name  # Optional, defaults to "gemini-2.0-flash-lite"
 
 # Redis Configuration
 REDIS_HOST=your_redis_host
