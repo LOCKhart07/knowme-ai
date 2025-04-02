@@ -10,6 +10,8 @@ from .models import (
     PongResponse,
     QueryResponse,
     StreamingResponse as StreamingResponseModel,
+    Message,
+    MessageRole,
 )
 from .services.llm_service import LLMService
 
@@ -88,9 +90,14 @@ async def process_query_complete(query_request: QueryRequest) -> QueryResponse:
     """
     try:
         response, history, message_id = await llm_service.process_query(
-            query_request.query, query_request.history
+            query_request.query, query_request.history, query_request.message_id
         )
-        return QueryResponse(response=response, history=history, message_id=message_id)
+        return QueryResponse(
+            response=response,
+            history=history,
+            message_id=message_id,
+            request_id=query_request.message_id,
+        )
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")
         logger.error(traceback.format_exc())
@@ -117,15 +124,14 @@ async def process_query_stream(query_request: QueryRequest):
     try:
 
         async def generate():
-            async for chunk, message_id in llm_service.process_query_stream(
-                query_request.query, query_request.history
+            async for message, is_final in llm_service.process_query_stream(
+                query_request.query, query_request.history, query_request.message_id
             ):
                 yield StreamingResponseModel(
-                    chunk=chunk, is_final=False, message_id=message_id
+                    message=message,
+                    is_final=is_final,
+                    request_id=query_request.message_id,
                 ).model_dump_json() + "\n"
-            yield StreamingResponseModel(
-                chunk="", is_final=True, message_id=message_id
-            ).model_dump_json() + "\n"
 
         return StreamingResponse(
             generate(),

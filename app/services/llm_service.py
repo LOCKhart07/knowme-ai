@@ -173,7 +173,10 @@ class LLMService:
             raise Exception("Failed to load resume details") from e
 
     async def process_query(
-        self, query: str, history: Optional[ChatHistory] = None
+        self,
+        query: str,
+        history: Optional[ChatHistory] = None,
+        query_message_id: Optional[uuid.UUID] = None,
     ) -> Tuple[str, ChatHistory, uuid.UUID]:
         """
         Process a chat query and return the response.
@@ -181,6 +184,7 @@ class LLMService:
         Args:
             query (str): The user's query text
             history (Optional[ChatHistory]): Optional chat history for context
+            query_message_id (Optional[uuid.UUID]): Optional message ID for the user's query
 
         Returns:
             Tuple[str, ChatHistory, uuid.UUID]: The AI's response, updated chat history, and message ID
@@ -213,8 +217,10 @@ class LLMService:
             # Get response from LLM
             response = self.llm.invoke(messages)
 
-            # Update chat history
-            updated_history = self._update_history(history, query, response.content)
+            # Update chat history with the query message ID
+            updated_history = self._update_history(
+                history, query, response.content, query_message_id
+            )
 
             # Get the message ID of the assistant's response (last message in history)
             message_id = updated_history.messages[-1].message_id
@@ -227,17 +233,21 @@ class LLMService:
             raise Exception(f"Error processing query: {str(e)}") from e
 
     async def process_query_stream(
-        self, query: str, history: Optional[ChatHistory] = None
-    ) -> AsyncGenerator[Tuple[str, uuid.UUID], None]:
+        self,
+        query: str,
+        history: Optional[ChatHistory] = None,
+        query_message_id: Optional[uuid.UUID] = None,
+    ) -> AsyncGenerator[Tuple[Message, bool], None]:
         """
         Process a chat query and stream the response chunks.
 
         Args:
             query (str): The user's query text
             history (Optional[ChatHistory]): Optional chat history for context
+            query_message_id (Optional[uuid.UUID]): Optional message ID for the user's query
 
         Yields:
-            Tuple[str, uuid.UUID]: Chunks of the AI's response and the message ID
+            Tuple[Message, bool]: Message object and whether it's the final chunk
 
         Raises:
             Exception: If there's an error processing the query
@@ -249,6 +259,10 @@ class LLMService:
             # Create a temporary message to get its ID
             temp_message = Message(role=MessageRole.ASSISTANT, content="")
             message_id = temp_message.message_id
+
+            # Update history with the query message ID
+            # if history is not None:
+            #     history = self._update_history(history, query, "", query_message_id)
 
             # Prepare messages for the LLM
             messages = self.messages_template.invoke(
@@ -270,7 +284,12 @@ class LLMService:
 
             # Stream response from LLM
             async for chunk in self.llm.astream(messages):
-                yield chunk.content, message_id
+                is_final = chunk.response_metadata.get("finish_reason") == "STOP"
+                yield Message(
+                    role=MessageRole.ASSISTANT,
+                    content=chunk.content,
+                    message_id=message_id,
+                ), is_final
 
         except Exception as e:
             logger.error(f"Error processing streaming query: {str(e)}")
@@ -294,7 +313,10 @@ class LLMService:
 
     @staticmethod
     def _update_history(
-        history: Optional[ChatHistory], query: str, response: str
+        history: Optional[ChatHistory],
+        query: str,
+        response: str,
+        query_message_id: Optional[uuid.UUID] = None,
     ) -> ChatHistory:
         """
         Update chat history with new query and response.
@@ -303,6 +325,7 @@ class LLMService:
             history (Optional[ChatHistory]): Existing chat history
             query (str): User's query
             response (str): AI's response
+            query_message_id (Optional[uuid.UUID]): Optional message ID for the user's query
 
         Returns:
             ChatHistory: Updated chat history
@@ -310,8 +333,11 @@ class LLMService:
         if history is None:
             history = ChatHistory(messages=[])
 
-        # Add user query with timestamp
-        history.messages.append(Message(role=MessageRole.USER, content=query))
+        # Add user query with timestamp and optional message ID
+        user_message = Message(role=MessageRole.USER, content=query)
+        if query_message_id:
+            user_message.message_id = query_message_id
+        history.messages.append(user_message)
 
         # Add AI response with timestamp
         history.messages.append(Message(role=MessageRole.ASSISTANT, content=response))

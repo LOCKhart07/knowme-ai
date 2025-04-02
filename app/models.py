@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 
 
@@ -24,13 +24,13 @@ class Message(BaseModel):
         timestamp (datetime): The timestamp when the message was sent
     """
 
-    message_id: uuid.UUID = Field(
+    message_id: Optional[uuid.UUID] = Field(
         default_factory=uuid.uuid4, description="Unique identifier for the message"
     )
     role: MessageRole = Field(..., description="Role of the message sender")
     content: str = Field(..., description="Content of the message")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         description="Timestamp when the message was sent",
     )
 
@@ -55,11 +55,15 @@ class QueryRequest(BaseModel):
     Attributes:
         query (str): The user's query text
         history (Optional[ChatHistory]): Optional chat history for context
+        message_id (Optional[uuid.UUID]): Optional message ID for the user's query
     """
 
     query: str = Field(..., description="User's query text")
     history: Optional[ChatHistory] = Field(
         default=None, description="Optional chat history"
+    )
+    message_id: Optional[uuid.UUID] = Field(
+        default=None, description="Optional message ID for the user's query"
     )
 
 
@@ -82,12 +86,16 @@ class QueryResponse(BaseModel):
         response (str): The AI's response to the query
         history (ChatHistory): Updated chat history including the new interaction
         message_id (uuid.UUID): The ID of the assistant's response message
+        request_id (Optional[uuid.UUID]): The ID of the user's request message
     """
 
     response: str = Field(..., description="AI's response to the query")
     history: ChatHistory = Field(..., description="Updated chat history")
     message_id: uuid.UUID = Field(
         ..., description="ID of the assistant's response message"
+    )
+    request_id: Optional[uuid.UUID] = Field(
+        default=None, description="ID of the user's request message"
     )
 
 
@@ -96,13 +104,15 @@ class StreamingResponse(BaseModel):
     Response model for streaming chat responses.
 
     Attributes:
-        chunk (str): A chunk of the AI's response
+        message (Message): The message containing the chunk of the AI's response
         is_final (bool): Whether this is the final chunk
-        message_id (uuid.UUID): The ID of the assistant's response message
+        request_id (Optional[uuid.UUID]): The ID of the user's request message
     """
 
-    chunk: str = Field(..., description="A chunk of the AI's response")
+    message: Message = Field(
+        ..., description="The message containing the chunk of the AI's response"
+    )
     is_final: bool = Field(..., description="Whether this is the final chunk")
-    message_id: uuid.UUID = Field(
-        ..., description="ID of the assistant's response message"
+    request_id: Optional[uuid.UUID] = Field(
+        default=None, description="ID of the user's request message"
     )
