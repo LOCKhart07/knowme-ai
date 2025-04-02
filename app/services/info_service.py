@@ -1,11 +1,13 @@
 import os
 from typing import Optional
 import requests
-from langchain_community.document_loaders.pdf import OnlinePDFLoader
 from dotenv import load_dotenv
-from typing import List, TypedDict, AnyStr
+from typing import List
 from collections import defaultdict
 import traceback
+import json
+import hashlib
+from .redis_service import RedisService
 
 load_dotenv()
 
@@ -18,90 +20,127 @@ class InfoService:
             "Authorization": f"Bearer {self.datocms_api_token}",
             "Content-Type": "application/json",
         }
+        self.redis_service = RedisService()
 
-    async def fetch_resume_text(self) -> Optional[str]:
+    def _get_cache_key(self, query: str) -> str:
+        """Generate a unique cache key for the query"""
+        # Create a hash of the query to use as the cache key
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        return f"datocms:query:{query_hash}"
+
+    def _query_datocms(self, query: str) -> Optional[dict]:
+        """Execute a GraphQL query against DatoCMS with Redis caching"""
+        try:
+            # Generate cache key
+            cache_key = self._get_cache_key(query)
+
+            # Try to get cached data
+            try:
+                cached_data = self.redis_service.get(cache_key)
+                if cached_data:
+                    return json.loads(cached_data)
+            except Exception as e:
+                traceback.format_exc()
+                print(f"Error getting cached data: {str(e)}")
+
+            # If no cache, make the API request
+            response = requests.post(
+                self.dato_cms_url,
+                json={"query": query},
+                headers=self.datocms_headers,
+            )
+            response.raise_for_status()
+
+            data = response.json()
+
+            # Check for errors in GraphQL response
+            if "errors" in data:
+                print(f"GraphQL errors: {data['errors']}")
+                return None
+
+            # Cache the successful response
+            self.redis_service.set(cache_key, json.dumps(data), 86400)  # 1 day
+
+            return data
+
+        except Exception as e:
+            print(f"Error querying DatoCMS: {str(e)}")
+            return None
+
+    async def fetch_all_data(self) -> Optional[dict]:
+        """Fetch all data from DatoCMS"""
+        # GraphQL query to fetch resume data
+        query = """
+        query {
+            resumeUncompiled {
+                text
+            }
+            allSkills(first: 100, orderBy: order_ASC) {
+                name
+                category
+                description
+            }
+            allTimelines {
+                title
+                timelineType
+                summaryPoints
+                name
+                dateRange
+                techStack
+            }
+            allProjects {
+                description
+                link
+                techUsed
+                title
+            }
+            allCertifications {
+                issuedDate
+                issuer
+                link
+                title
+            }
+            contactMe {
+                name
+                email
+                linkedinLink
+                phoneNumber
+            }
+            profilebanner {
+                profileSummary
+            }
+        }
+        """
+
+        return self._query_datocms(query)
+
+    async def initialize(self) -> None:
+        """Initialize the service"""
+        self.data = await self.fetch_all_data()
+
+        self.resume_text = self._extract_resume_text()
+        self.skills = self._format_skills(self._extract_skills())
+        self.experience = self._format_experience(self._extract_experience())
+        self.projects = self._format_projects(self._extract_projects())
+        self.education = self._format_education(self._extract_education())
+        self.certifications = self._format_certifications(
+            self._extract_certifications()
+        )
+        self.contact_details = self._format_contact_details(
+            self._extract_contact_details()
+        )
+        self.full_name = self._extract_name()
+        self.summary = self._extract_summary()
+        self.languages = self._extract_languages()
+
+    def _extract_resume_text(self) -> Optional[str]:
         """Fetch resume text"""
-        try:
-            # GraphQL query to fetch resume data
-            query = """
-            query {
-                resumeUncompiled {
-                    text
-                }
-            }
-            """
+        return self.data.get("data", {}).get("resumeUncompiled", {}).get("text")
 
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
+    def _extract_skills(self):
+        skills_list = self.data.get("data", {}).get("allSkills", [])
 
-            data = response.json()
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-
-            # Extract resume link from response
-            # print(data)
-            resume_text = data.get("data", {}).get("resumeUncompiled", {}).get("text")
-
-            if not resume_text:
-
-                print("No resume URL text in response")
-                return None
-
-            return resume_text
-
-        except Exception as e:
-            print(f"Error fetching resume from DatoCMS: {str(e)}")
-            return None
-
-    async def fetch_skills(self):
-        try:
-            # GraphQL query to fetch resume data
-            query = """
-            query {
-                allSkills(first: 100, orderBy: order_ASC) {
-                    name
-                    category
-                    description
-                }
-            }
-            """
-
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-
-            skills_list = data.get("data", {}).get("allSkills", {})
-
-            if not skills_list:
-
-                print("No skills list in response")
-                return None
-
-            return self._format_skills(skills_list)
-
-        except Exception as e:
-            print(f"Error fetching skills from DatoCMS: {str(e)}")
-            return None
+        return skills_list
 
     @staticmethod
     def _format_skills(skills: List[dict]) -> str:
@@ -121,49 +160,13 @@ class InfoService:
 
         return formatted_text.strip()
 
-    async def fetch_experience(self):
-        try:
-            query = """
-                {
-                    allTimelines(filter: { timelineType: { eq: "work" } }) {
-                        title
-                        timelineType
-                        summaryPoints
-                        name
-                        dateRange
-                        techStack
-                    }
-                }
-            """
-
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-
-            experience_list = data.get("data", {}).get("allTimelines", {})
-
-            if not experience_list:
-
-                print("No experience list in response")
-                return None
-
-            return self._format_experience(experience_list)
-
-        except Exception as e:
-            print(f"Error fetching experience from DatoCMS: {str(e)}")
-            return None
+    def _extract_experience(self):
+        experience_list = self.data.get("data", {}).get("allTimelines", [])
+        # Filter for work experience only
+        experience_list = [
+            exp for exp in experience_list if exp.get("timelineType") == "work"
+        ]
+        return experience_list
 
     @staticmethod
     def _format_experience(experience_list: List[dict]) -> str:
@@ -177,48 +180,10 @@ class InfoService:
             ]
         )
 
-    async def fetch_projects(self):
-        try:
-            query = """
-                {
-                    allProjects {
-                        description
-                        link
-                        techUsed
-                        title
-                    }
-                }
-            """
+    def _extract_projects(self):
+        project_list = self.data.get("data", {}).get("allProjects", [])
 
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-
-            project_list = data.get("data", {}).get("allProjects", [])
-
-            if not project_list:
-
-                print("No project list in response")
-                return None
-            # print(project_list)
-            return self._format_projects(project_list)
-            return project_list
-
-        except Exception as e:
-            print(f"Error fetching projects from DatoCMS: {str(e)}")
-            return None
+        return project_list
 
     @staticmethod
     def _format_projects(project_list: List[dict]) -> str:
@@ -232,48 +197,12 @@ class InfoService:
             ]
         )
 
-    async def fetch_education(self):
-        try:
-            query = """
-                {
-                    allTimelines(filter: { timelineType: { eq: "education" } }) {
-                        title
-                        timelineType
-                        summaryPoints
-                        name
-                        dateRange
-                        techStack
-                    }
-                }
-            """
-
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-
-            education_list = data.get("data", {}).get("allTimelines", {})
-
-            if not education_list:
-                print("No education list in response")
-                return None
-
-            return self._format_education(education_list)
-
-        except Exception as e:
-            print(f"Error fetching education from DatoCMS: {str(e)}")
-            return None
+    def _extract_education(self):
+        education_list = self.data.get("data", {}).get("allTimelines", [])
+        education_list = [
+            edu for edu in education_list if edu.get("timelineType") == "education"
+        ]
+        return education_list
 
     @staticmethod
     def _format_education(education_list: List[dict]) -> str:
@@ -287,46 +216,10 @@ class InfoService:
             ]
         )
 
-    async def fetch_certifications(self):
-        try:
-            query = """
-                {
-                allCertifications {
-                    issuedDate
-                    issuer
-                    link
-                    title
-                }
-                }
-            """
+    def _extract_certifications(self):
+        certification_list = self.data.get("data", {}).get("allCertifications", [])
 
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-
-            certification_list = data.get("data", {}).get("allCertifications", {})
-
-            if not certification_list:
-                print("No certification list in response")
-                return None
-            # print(certification_list)
-            return self._format_certifications(certification_list)
-
-        except Exception as e:
-            print(f"Error fetching certifications from DatoCMS: {str(e)}")
-            return None
+        return certification_list
 
     @staticmethod
     def _format_certifications(certification_list: List[dict]) -> str:
@@ -340,45 +233,10 @@ class InfoService:
             ]
         )
 
-    async def fetch_contact_details(self):
-        try:
-            query = """
-                {
-                    contactMe {
-                        email
-                        linkedinLink
-                        phoneNumber
-                    }
-                }
-            """
+    def _extract_contact_details(self):
+        contact_details = self.data.get("data", {}).get("contactMe", {})
 
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-            # print(data)
-            contact_details = data.get("data", {}).get("contactMe", {})
-
-            if not contact_details:
-                print("No contact details in response")
-                return None
-            # print(contact_details)
-            return self._format_contact_details(contact_details)
-
-        except Exception as e:
-            print(f"Error fetching contact details from DatoCMS: {str(e)}")
-            return None
+        return contact_details
 
     @staticmethod
     def _format_contact_details(contact_details: dict) -> str:
@@ -387,84 +245,12 @@ class InfoService:
         # Format the output as a string
         return f"Email: {contact_details['email']}\nLinkedin: {contact_details['email']}\nPhone: {contact_details['phoneNumber']}"
 
-    async def fetch_name(self):
-        try:
-            query = """
-                {
-                    contactMe {
-                        name
-                    }
-                }
-            """
+    def _extract_name(self):
+        return self.data.get("data", {}).get("contactMe", {}).get("name")
 
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
+    def _extract_summary(self):
+        return self.data.get("data", {}).get("profilebanner", {}).get("profileSummary")
 
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-            # print(data)
-            full_name = data.get("data", {}).get("contactMe", {}).get("name")
-
-            if not full_name:
-                print("No full name in response")
-                return None
-            # print(contact_details)
-            return full_name
-
-        except Exception as e:
-            print(f"Error fetching contact details from DatoCMS: {str(e)}")
-            return None
-
-    async def fetch_summary(self):
-        try:
-            query = """
-                {
-                    profilebanner {
-                        profileSummary
-                    }
-                }
-            """
-
-            # Make GraphQL request
-            response = requests.post(
-                self.dato_cms_url,
-                json={"query": query},
-                headers=self.datocms_headers,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            # print(data)
-
-            # Check for errors in GraphQL response
-            if "errors" in data:
-                print(f"GraphQL errors: {data['errors']}")
-                return None
-            # print(data)
-            full_name = (
-                data.get("data", {}).get("profilebanner", {}).get("profileSummary")
-            )
-
-            if not full_name:
-                print("No full summary in response")
-                return None
-            # print(contact_details)
-            return full_name
-
-        except Exception as e:
-            print(f"Error fetching summary from DatoCMS: {str(e)}")
-            return None
-
-    async def fetch_languages(self):
-        # TODO:
+    def _extract_languages(self):
+        # TODO: Add languages from DatoCMS
         return "English, Hindi, Marathi"

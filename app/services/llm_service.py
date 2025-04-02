@@ -1,7 +1,6 @@
-from typing import Optional, Dict, Any, Tuple, List, AsyncGenerator
+from typing import Optional, Tuple, List, AsyncGenerator
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import BaseMessage
 from dotenv import load_dotenv
 import logging
 import traceback
@@ -91,34 +90,6 @@ class LLMService:
             template_format="mustache",
         )
 
-    async def _fetch_with_cache(self, key: str, fetch_func) -> Optional[str]:
-        """
-        Fetch data with Redis caching.
-
-        Args:
-            key (str): Cache key
-            fetch_func: Async function to fetch data if not in cache
-
-        Returns:
-            Optional[str]: Fetched data
-        """
-        # Try to get from cache first
-        cached_value = self.redis_service.get(key)
-        if cached_value is not None:
-            logger.debug(f"Cache hit for key: {key}")
-            return cached_value
-
-        # If not in cache, fetch and store
-        try:
-            value = await fetch_func()
-            if value:
-                self.redis_service.set(key, value, CACHE_EXPIRE)
-                logger.debug(f"Cached value for key: {key}")
-            return value
-        except Exception as e:
-            logger.error(f"Error fetching data for key {key}: {str(e)}")
-            return None
-
     async def _ensure_all_details(self) -> None:
         """
         Ensure all resume details are loaded.
@@ -126,37 +97,19 @@ class LLMService:
         This method fetches all resume-related information if not already loaded.
         """
         try:
-            # Fetch all details with caching
-            self.details.resume_text = await self._fetch_with_cache(
-                CACHE_KEYS["resume_text"], self.resume_service.fetch_resume_text
-            )
-            self.details.full_name = await self._fetch_with_cache(
-                CACHE_KEYS["full_name"], self.resume_service.fetch_name
-            )
-            self.details.summary = await self._fetch_with_cache(
-                CACHE_KEYS["summary"], self.resume_service.fetch_summary
-            )
-            self.details.skills = await self._fetch_with_cache(
-                CACHE_KEYS["skills"], self.resume_service.fetch_skills
-            )
-            self.details.languages = await self._fetch_with_cache(
-                CACHE_KEYS["languages"], self.resume_service.fetch_languages
-            )
-            self.details.experience = await self._fetch_with_cache(
-                CACHE_KEYS["experience"], self.resume_service.fetch_experience
-            )
-            self.details.projects = await self._fetch_with_cache(
-                CACHE_KEYS["projects"], self.resume_service.fetch_projects
-            )
-            self.details.education = await self._fetch_with_cache(
-                CACHE_KEYS["education"], self.resume_service.fetch_education
-            )
-            self.details.certifications = await self._fetch_with_cache(
-                CACHE_KEYS["certifications"], self.resume_service.fetch_certifications
-            )
-            self.details.contact_details = await self._fetch_with_cache(
-                CACHE_KEYS["contact_details"], self.resume_service.fetch_contact_details
-            )
+            # Fetch all details
+            await self.resume_service.initialize()
+
+            self.details.resume_text = self.resume_service.resume_text
+            self.details.full_name = self.resume_service.full_name
+            self.details.summary = self.resume_service.summary
+            self.details.skills = self.resume_service.skills
+            self.details.languages = self.resume_service.languages
+            self.details.experience = self.resume_service.experience
+            self.details.projects = self.resume_service.projects
+            self.details.education = self.resume_service.education
+            self.details.certifications = self.resume_service.certifications
+            self.details.contact_details = self.resume_service.contact_details
 
             # Check if any required data is missing
             missing_fields = [
@@ -293,7 +246,7 @@ class LLMService:
 
         except Exception as e:
             logger.error(f"Error processing streaming query: {str(e)}")
-            logger.error(traceback.format_exc())
+            traceback.format_exc()
             raise Exception(f"Error processing streaming query: {str(e)}") from e
 
     @staticmethod
