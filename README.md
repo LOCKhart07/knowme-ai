@@ -1,3 +1,4 @@
+[![Docker Image CI/CD](https://github.com/LOCKhart07/knowme-ai/actions/workflows/backend-build-push-deploy.yaml/badge.svg)](https://github.com/LOCKhart07/knowme-ai/actions/workflows/backend-build-push-deploy.yaml)
 # KnowMe AI
 
 A customizable chatbot powered by Google's Gemini LLM that dynamically answers questions about a user's career, skills, and background. The system uses DatoCMS for content management and Redis for caching to provide fast, personalized responses.
