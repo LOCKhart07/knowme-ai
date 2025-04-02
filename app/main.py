@@ -87,10 +87,10 @@ async def process_query_complete(query_request: QueryRequest) -> QueryResponse:
         HTTPException: If there's an error processing the query
     """
     try:
-        response, history = await llm_service.process_query(
+        response, history, message_id = await llm_service.process_query(
             query_request.query, query_request.history
         )
-        return QueryResponse(response=response, history=history)
+        return QueryResponse(response=response, history=history, message_id=message_id)
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")
         logger.error(traceback.format_exc())
@@ -117,14 +117,14 @@ async def process_query_stream(query_request: QueryRequest):
     try:
 
         async def generate():
-            async for chunk in llm_service.process_query_stream(
+            async for chunk, message_id in llm_service.process_query_stream(
                 query_request.query, query_request.history
             ):
                 yield StreamingResponseModel(
-                    chunk=chunk, is_final=False
+                    chunk=chunk, is_final=False, message_id=message_id
                 ).model_dump_json() + "\n"
             yield StreamingResponseModel(
-                chunk="", is_final=True
+                chunk="", is_final=True, message_id=message_id
             ).model_dump_json() + "\n"
 
         return StreamingResponse(

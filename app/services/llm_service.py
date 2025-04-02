@@ -7,6 +7,7 @@ import logging
 import traceback
 from dataclasses import dataclass
 import os
+import uuid
 
 from ..prompts import BasePrompts
 from ..models import ChatHistory, Message, MessageRole
@@ -173,7 +174,7 @@ class LLMService:
 
     async def process_query(
         self, query: str, history: Optional[ChatHistory] = None
-    ) -> Tuple[str, ChatHistory]:
+    ) -> Tuple[str, ChatHistory, uuid.UUID]:
         """
         Process a chat query and return the response.
 
@@ -182,7 +183,7 @@ class LLMService:
             history (Optional[ChatHistory]): Optional chat history for context
 
         Returns:
-            Tuple[str, ChatHistory]: The AI's response and updated chat history
+            Tuple[str, ChatHistory, uuid.UUID]: The AI's response, updated chat history, and message ID
 
         Raises:
             Exception: If there's an error processing the query
@@ -215,7 +216,10 @@ class LLMService:
             # Update chat history
             updated_history = self._update_history(history, query, response.content)
 
-            return response.content, updated_history
+            # Get the message ID of the assistant's response (last message in history)
+            message_id = updated_history.messages[-1].message_id
+
+            return response.content, updated_history, message_id
 
         except Exception as e:
             logger.error(f"Error processing query: {str(e)}")
@@ -224,7 +228,7 @@ class LLMService:
 
     async def process_query_stream(
         self, query: str, history: Optional[ChatHistory] = None
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[Tuple[str, uuid.UUID], None]:
         """
         Process a chat query and stream the response chunks.
 
@@ -233,7 +237,7 @@ class LLMService:
             history (Optional[ChatHistory]): Optional chat history for context
 
         Yields:
-            str: Chunks of the AI's response
+            Tuple[str, uuid.UUID]: Chunks of the AI's response and the message ID
 
         Raises:
             Exception: If there's an error processing the query
@@ -241,6 +245,10 @@ class LLMService:
         try:
             # Ensure resume text is loaded
             await self._ensure_all_details()
+
+            # Create a temporary message to get its ID
+            temp_message = Message(role=MessageRole.ASSISTANT, content="")
+            message_id = temp_message.message_id
 
             # Prepare messages for the LLM
             messages = self.messages_template.invoke(
@@ -262,7 +270,7 @@ class LLMService:
 
             # Stream response from LLM
             async for chunk in self.llm.astream(messages):
-                yield chunk.content
+                yield chunk.content, message_id
 
         except Exception as e:
             logger.error(f"Error processing streaming query: {str(e)}")

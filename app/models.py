@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
 from datetime import datetime
+import uuid
 
 
 class MessageRole(str, Enum):
@@ -17,11 +18,15 @@ class Message(BaseModel):
     Represents a single message in a chat conversation.
 
     Attributes:
+        message_id (uuid.UUID): Unique identifier for the message
         role (MessageRole): The role of the message sender (user, assistant, or system)
         content (str): The content of the message
         timestamp (datetime): The timestamp when the message was sent
     """
 
+    message_id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, description="Unique identifier for the message"
+    )
     role: MessageRole = Field(..., description="Role of the message sender")
     content: str = Field(..., description="Content of the message")
     timestamp: datetime = Field(
@@ -76,10 +81,14 @@ class QueryResponse(BaseModel):
     Attributes:
         response (str): The AI's response to the query
         history (ChatHistory): Updated chat history including the new interaction
+        message_id (uuid.UUID): The ID of the assistant's response message
     """
 
     response: str = Field(..., description="AI's response to the query")
     history: ChatHistory = Field(..., description="Updated chat history")
+    message_id: uuid.UUID = Field(
+        ..., description="ID of the assistant's response message"
+    )
 
 
 class StreamingResponse(BaseModel):
@@ -89,7 +98,11 @@ class StreamingResponse(BaseModel):
     Attributes:
         chunk (str): A chunk of the AI's response
         is_final (bool): Whether this is the final chunk
+        message_id (uuid.UUID): The ID of the assistant's response message
     """
 
     chunk: str = Field(..., description="A chunk of the AI's response")
     is_final: bool = Field(..., description="Whether this is the final chunk")
+    message_id: uuid.UUID = Field(
+        ..., description="ID of the assistant's response message"
+    )
