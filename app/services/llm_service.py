@@ -7,6 +7,8 @@ import traceback
 from dataclasses import dataclass
 import os
 import uuid
+import time
+from .api_key_balancer import APIKeyBalancer
 
 from ..prompts import BasePrompts
 from ..models import ChatHistory, Message, MessageRole
@@ -70,14 +72,63 @@ class LLMService:
                                       will use GEMINI_MODEL environment variable or default to "gemini-2.0-flash-lite"
             temperature (float): Temperature parameter for the LLM
         """
-        self.llm = ChatGoogleGenerativeAI(
-            model=model_name or os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
-            temperature=temperature,
-        )
-        self.resume_service = InfoService()
+        self.model_name = model_name or os.getenv("MODEL_NAME", "gemini-2.0-flash-lite")
+        self.temperature = temperature
+        self.info_service = InfoService()
         self.redis_service = RedisService()
+        self.api_key_balancer = APIKeyBalancer(self.redis_service)
         self.details = ResumeDetails()
         self._setup_prompt_template()
+        self._setup_llm()
+
+    def _setup_llm(self) -> None:
+        """Set up the LLM with the current API key."""
+        api_key = self.api_key_balancer.get_next_key()
+        if not api_key:
+            raise ValueError("No available API keys found")
+
+        print("Using API key:", api_key)
+        self.llm = ChatGoogleGenerativeAI(
+            model=self.model_name,
+            google_api_key=api_key,
+            temperature=self.temperature,
+        )
+
+    async def _retry_with_new_key(self, func, *args, **kwargs):
+        """Retry a function with a new API key if the current one fails."""
+        max_retries = len(self.api_key_balancer.api_keys) * 2  # Allow two full cycles
+        retry_delay = 1  # Start with 1 second delay
+
+        for attempt in range(max_retries):
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                error_message = str(e)
+                logger.error(
+                    f"API call failed (attempt {attempt + 1}/{max_retries}): {error_message}"
+                )
+
+                # Mark current key as failed
+                current_key = self.llm.google_api_key
+                self.api_key_balancer.mark_key_failed(current_key, error_message)
+
+                # Try with a new key
+                new_key = self.api_key_balancer.get_next_key()
+                if not new_key:
+                    if attempt < max_retries - 1:
+                        # Wait before retrying
+                        time.sleep(retry_delay)
+                        retry_delay = min(
+                            retry_delay * 2, 10
+                        )  # Exponential backoff, max 10 seconds
+                        continue
+                    raise ValueError("All API keys failed after multiple retries")
+
+                self.llm.google_api_key = new_key
+                logger.info(f"Switched to new API key for retry {attempt + 1}")
+                continue
+
+        raise ValueError("All API keys failed after multiple retries")
 
     def _setup_prompt_template(self) -> None:
         """Set up the chat prompt template with system message and placeholders."""
@@ -98,18 +149,18 @@ class LLMService:
         """
         try:
             # Fetch all details
-            await self.resume_service.initialize()
+            await self.info_service.initialize()
 
-            self.details.resume_text = self.resume_service.resume_text
-            self.details.full_name = self.resume_service.full_name
-            self.details.summary = self.resume_service.summary
-            self.details.skills = self.resume_service.skills
-            self.details.languages = self.resume_service.languages
-            self.details.experience = self.resume_service.experience
-            self.details.projects = self.resume_service.projects
-            self.details.education = self.resume_service.education
-            self.details.certifications = self.resume_service.certifications
-            self.details.contact_details = self.resume_service.contact_details
+            self.details.resume_text = self.info_service.resume_text
+            self.details.full_name = self.info_service.full_name
+            self.details.summary = self.info_service.summary
+            self.details.skills = self.info_service.skills
+            self.details.languages = self.info_service.languages
+            self.details.experience = self.info_service.experience
+            self.details.projects = self.info_service.projects
+            self.details.education = self.info_service.education
+            self.details.certifications = self.info_service.certifications
+            self.details.contact_details = self.info_service.contact_details
 
             # Check if any required data is missing
             missing_fields = [
@@ -145,6 +196,17 @@ class LLMService:
         Raises:
             Exception: If there's an error processing the query
         """
+        return await self._retry_with_new_key(
+            self._process_query_impl, query, history, query_message_id
+        )
+
+    async def _process_query_impl(
+        self,
+        query: str,
+        history: Optional[ChatHistory] = None,
+        query_message_id: Optional[uuid.UUID] = None,
+    ) -> Tuple[str, ChatHistory, uuid.UUID]:
+        """Implementation of process_query with error handling."""
         try:
             # Ensure resume text is loaded
             await self._ensure_all_details()
