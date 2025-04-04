@@ -10,10 +10,11 @@ A customizable chatbot powered by Google's Gemini LLM that dynamically answers q
 - 💬 Interactive chat interface
 - 🔄 Redis caching for improved performance
 - 📊 DatoCMS integration for content management
-- 🔒 Secure API key management
+- 🔒 Secure API key management with automatic balancing
 - 📚 Comprehensive API documentation
 - 🌐 CORS enabled for cross-origin requests
 - 🐳 Docker support for easy deployment
+- 📈 LangSmith integration for monitoring and tracing
 
 ## Tech Stack
 
@@ -35,7 +36,7 @@ A customizable chatbot powered by Google's Gemini LLM that dynamically answers q
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/LOCKhart07/knowme-ai.git
 cd knowme-ai
 ```
 
@@ -53,7 +54,7 @@ pip install -r requirements.txt
 4. Configure environment variables:
 Create a `.env` file in the root directory with the following variables:
 ```env
-GOOGLE_API_KEY=your_google_api_key
+GOOGLE_API_KEYS=your_google_api_keys  # Comma-separated list of API keys
 DATOCMS_API_TOKEN=your_dato_cms_token
 GEMINI_MODEL=your_gemini_model_name  # Optional, defaults to "gemini-2.0-flash-lite"
 
@@ -63,6 +64,12 @@ REDIS_PORT=your_redis_port
 REDIS_DB=0
 REDIS_USERNAME=your_redis_username
 REDIS_PASSWORD=your_redis_password
+
+# LangSmith Configuration (Optional)
+LANGSMITH_TRACING=true
+LANGSMITH_ENDPOINT=your_langsmith_endpoint
+LANGSMITH_API_KEY=your_langsmith_api_key
+LANGSMITH_PROJECT=your_langsmith_project
 ```
 
 ## Running the Application
@@ -73,7 +80,7 @@ Start the server:
 uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://localhost:7000`
 
 ### Docker Deployment
 Build and run using Docker Compose:
@@ -90,8 +97,8 @@ docker-compose up --build
 ## API Documentation
 
 Once the server is running, you can access:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+- Swagger UI: `http://localhost:7000/docs`
+- ReDoc: `http://localhost:7000/redoc`
 
 ## Project Structure
 
@@ -101,10 +108,12 @@ knowme-ai/
 │   ├── models.py          # Data models and schemas
 │   ├── main.py           # FastAPI application and routes
 │   ├── prompts/          # LLM prompt templates
+│   ├── utils/            # Utility functions and helpers
 │   └── services/         # Business logic
 │       ├── llm_service.py    # Gemini LLM integration
 │       ├── info_service.py   # Resume info and DatoCMS service
-│       └── redis_service.py  # Redis caching service
+│       ├── redis_service.py  # Redis caching service
+│       └── api_key_balancer.py  # API key load balancing service
 ├── requirements.txt      # Python dependencies
 ├── docker-compose.yaml   # Docker Compose configuration
 ├── Dockerfile           # Docker build configuration
@@ -159,6 +168,12 @@ The system dynamically fetches and caches various aspects of your resume:
 - `playground.ipynb`: Jupyter notebook for development, testing, and experimentation
 - Docker support for containerized deployment
 - Comprehensive API documentation
+
+### API Key Management
+- Automatic load balancing across multiple API keys
+- Rate limit monitoring and management
+- Fallback mechanisms for API key failures
+- Configurable key rotation strategies
 
 ## Contributing
 
