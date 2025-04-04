@@ -23,31 +23,9 @@ services:
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
       - LANGSMITH_PROJECT=${LANGSMITH_PROJECT}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
-    depends_on:
-      - redis
-    networks:
-      - backend
-
-  redis:
-    image: redis:7-alpine
-    container_name: knowme-ai-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
     networks:
       - backend
 
 networks:
   backend:
     external: true
-
-volumes:
-  redis_data:
