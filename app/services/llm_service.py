@@ -72,7 +72,7 @@ class LLMService:
                                       will use GEMINI_MODEL environment variable or default to "gemini-2.0-flash-lite"
             temperature (float): Temperature parameter for the LLM
         """
-        self.model_name = model_name or os.getenv("MODEL_NAME", "gemini-2.0-flash-lite")
+        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
         self.temperature = temperature
         self.info_service = InfoService()
         self.redis_service = RedisService()
