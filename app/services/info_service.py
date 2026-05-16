@@ -243,7 +243,7 @@ class InfoService:
         """Format the experience list into a desired structure."""
 
         # Format the output as a string
-        return f"Email: {contact_details['email']}\nLinkedin: {contact_details['email']}\nPhone: {contact_details['phoneNumber']}"
+        return f"Email: {contact_details['email']}\nLinkedin: {contact_details['linkedinLink']}\nPhone: {contact_details['phoneNumber']}"
 
     def _extract_name(self):
         return self.data.get("data", {}).get("contactMe", {}).get("name")
