@@ -5,8 +5,7 @@ services:
     pull_policy: always
     tty: true
     stdin_open: true
-    ports:
-      - "7000:7000"
+    network_mode: host
     healthcheck:
       test: ["CMD", "python3", "-c", "import requests; r=requests.get('http://localhost:7000/ping'); r.raise_for_status()"]
       interval: 30s
@@ -14,7 +13,7 @@ services:
       retries: 5
       start_period: 30s
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=localhost
       - REDIS_PORT=6379
       - GOOGLE_API_KEYS=${GOOGLE_API_KEYS}
       - DATOCMS_API_TOKEN=${DATOCMS_API_TOKEN}
@@ -23,9 +22,3 @@ services:
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
       - LANGSMITH_PROJECT=${LANGSMITH_PROJECT}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
-    networks:
-      - backend
-
-networks:
-  backend:
-    external: true
