@@ -9,7 +9,7 @@ RUN useradd -m knowme-ai-user
 
 # Set the working directory to /code and change ownership
 WORKDIR /code
-RUN chown -R knowme-ai-user:knowme-ai-user /code
+RUN mkdir -p /code/data && chown -R knowme-ai-user:knowme-ai-user /code
 
 # Switch to the non-root user
 USER knowme-ai-user

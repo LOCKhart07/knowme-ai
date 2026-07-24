@@ -14,6 +14,7 @@ from .models import (
     MessageRole,
 )
 from .services.llm_service import LLMService
+from .services.request_log_service import RequestLogService
 
 # Configure logging
 logging.basicConfig(
@@ -61,6 +62,7 @@ app = create_app()
 
 # Initialize services
 llm_service = LLMService()
+request_log_service = RequestLogService()
 
 
 @app.get("/ping", response_model=PongResponse, tags=["Health"])
@@ -92,6 +94,7 @@ async def process_query_complete(query_request: QueryRequest) -> QueryResponse:
         response, history, message_id = await llm_service.process_query(
             query_request.query, query_request.history, query_request.message_id
         )
+        request_log_service.log(query_request.query, response, str(message_id))
         return QueryResponse(
             response=response,
             history=history,
@@ -124,14 +127,21 @@ async def process_query_stream(query_request: QueryRequest):
     try:
 
         async def generate():
+            full_response = ""
+            last_message_id = None
             async for message, is_final in llm_service.process_query_stream(
                 query_request.query, query_request.history, query_request.message_id
             ):
+                full_response += message.content
+                last_message_id = message.message_id
                 yield StreamingResponseModel(
                     message=message,
                     is_final=is_final,
                     request_id=query_request.message_id,
                 ).model_dump_json() + "\n"
+            request_log_service.log(
+                query_request.query, full_response, str(last_message_id)
+            )
 
         return StreamingResponse(
             generate(),
