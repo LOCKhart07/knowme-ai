@@ -109,6 +109,20 @@ class InfoService:
             profilebanner {
                 profileSummary
             }
+            allAwards {
+                title
+                issuer
+                date
+                description
+            }
+            allRecommendations {
+                name
+                relation
+                title
+                body
+                date
+                link
+            }
         }
         """
 
@@ -128,6 +142,10 @@ class InfoService:
         )
         self.contact_details = self._format_contact_details(
             self._extract_contact_details()
+        )
+        self.awards = self._format_awards(self._extract_awards())
+        self.recommendations = self._format_recommendations(
+            self._extract_recommendations()
         )
         self.full_name = self._extract_name()
         self.summary = self._extract_summary()
@@ -244,6 +262,40 @@ class InfoService:
 
         # Format the output as a string
         return f"Email: {contact_details['email']}\nLinkedin: {contact_details['linkedinLink']}\nPhone: {contact_details['phoneNumber']}"
+
+    def _extract_awards(self):
+        awards_list = self.data.get("data", {}).get("allAwards", [])
+
+        return awards_list
+
+    @staticmethod
+    def _format_awards(awards_list: List[dict]) -> str:
+        """Format the awards list into a desired structure."""
+
+        # Format the output as a string
+        return "\n\n".join(
+            [
+                f"Title: {award['title']}\nIssuer: {award['issuer']}\nDate: {award['date']}\nDescription: {award['description']}"
+                for award in awards_list
+            ]
+        )
+
+    def _extract_recommendations(self):
+        recommendations_list = self.data.get("data", {}).get("allRecommendations", [])
+
+        return recommendations_list
+
+    @staticmethod
+    def _format_recommendations(recommendations_list: List[dict]) -> str:
+        """Format the recommendations list into a desired structure."""
+
+        # Format the output as a string
+        return "\n\n".join(
+            [
+                f"From: {recommendation['name']} ({recommendation['relation']})\nTitle: {recommendation['title']}\nDate: {recommendation['date']}\nRecommendation: {recommendation['body']}\nLink: {recommendation['link'] if recommendation['link'] else 'Not available publicly'}"
+                for recommendation in recommendations_list
+            ]
+        )
 
     def _extract_name(self):
         return self.data.get("data", {}).get("contactMe", {}).get("name")

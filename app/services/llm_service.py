@@ -53,6 +53,8 @@ class ResumeDetails:
     certifications: Optional[str] = None
     contact_details: Optional[str] = None
     resume_text: Optional[str] = None
+    awards: Optional[str] = None
+    recommendations: Optional[str] = None
 
 
 class LLMService:
@@ -161,6 +163,8 @@ class LLMService:
             self.details.education = self.info_service.education
             self.details.certifications = self.info_service.certifications
             self.details.contact_details = self.info_service.contact_details
+            self.details.awards = self.info_service.awards
+            self.details.recommendations = self.info_service.recommendations
 
             # Check if any required data is missing
             missing_fields = [
@@ -223,6 +227,8 @@ class LLMService:
                     "education": self.details.education,
                     "certifications": self.details.certifications,
                     "contact_details": self.details.contact_details,
+                    "awards": self.details.awards,
+                    "recommendations": self.details.recommendations,
                     "history": self._format_history(history),
                     "resume": self.details.resume_text,
                     "input": query,
@@ -291,6 +297,8 @@ class LLMService:
                     "education": self.details.education,
                     "certifications": self.details.certifications,
                     "contact_details": self.details.contact_details,
+                    "awards": self.details.awards,
+                    "recommendations": self.details.recommendations,
                     "history": self._format_history(history),
                     "resume": self.details.resume_text,
                     "input": query,

@@ -80,6 +80,14 @@ Certifications:
 
 {{ certifications }}
 
+Awards:
+
+{{ awards }}
+
+Recommendations:
+
+{{ recommendations }}
+
 Contact:
 
 {{ contact_details }}
