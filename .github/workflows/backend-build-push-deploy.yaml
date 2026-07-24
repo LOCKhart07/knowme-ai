@@ -72,6 +72,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Deploy to Oracle
         uses: appleboy/ssh-action@master
@@ -79,13 +82,19 @@ jobs:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USERNAME }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
+          envs: GHCR_ACTOR,GHCR_TOKEN
           script: |
             sudo mkdir -p /tmp/${{ github.repository }}
             sudo curl -L https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yaml -o /tmp/${{ github.repository }}/docker-compose.yaml
             cd /tmp/${{ github.repository }}
+            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_ACTOR" --password-stdin
+            sudo REDIS_HOST=${{ secrets.REDIS_HOST }} REDIS_PORT=${{ secrets.REDIS_PORT }} GOOGLE_API_KEYS=${{ secrets.GOOGLE_API_KEYS }} DATOCMS_API_TOKEN=${{ secrets.DATOCMS_API_TOKEN }} GEMINI_MODEL=${{ secrets.GEMINI_MODEL }} LANGSMITH_TRACING=${{ secrets.LANGSMITH_TRACING }} LANGSMITH_ENDPOINT=${{ secrets.LANGSMITH_ENDPOINT }} LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY }} LANGSMITH_PROJECT=${{ secrets.LANGSMITH_PROJECT }} docker compose pull
             sudo REDIS_HOST=${{ secrets.REDIS_HOST }} REDIS_PORT=${{ secrets.REDIS_PORT }} GOOGLE_API_KEYS=${{ secrets.GOOGLE_API_KEYS }} DATOCMS_API_TOKEN=${{ secrets.DATOCMS_API_TOKEN }} GEMINI_MODEL=${{ secrets.GEMINI_MODEL }} LANGSMITH_TRACING=${{ secrets.LANGSMITH_TRACING }} LANGSMITH_ENDPOINT=${{ secrets.LANGSMITH_ENDPOINT }} LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY }} LANGSMITH_PROJECT=${{ secrets.LANGSMITH_PROJECT }} docker compose up -d
             # This checks if the directory exists before attempting to remove it
             # It ensures that only the specific temporary directory is removed, preventing accidental deletion of other files or directories
             if [ -d /tmp/${{ github.repository }} ]; then
                 sudo rm -rf /tmp/${{ github.repository }}
             fi
+        env:
+          GHCR_ACTOR: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
