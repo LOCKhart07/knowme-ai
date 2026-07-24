@@ -45,6 +45,7 @@ class ResumeDetails:
 
     full_name: Optional[str] = None
     summary: Optional[str] = None
+    working_style: Optional[str] = None
     skills: Optional[str] = None
     languages: Optional[str] = None
     experience: Optional[str] = None
@@ -156,6 +157,7 @@ class LLMService:
             self.details.resume_text = self.info_service.resume_text
             self.details.full_name = self.info_service.full_name
             self.details.summary = self.info_service.summary
+            self.details.working_style = self.info_service.working_style
             self.details.skills = self.info_service.skills
             self.details.languages = self.info_service.languages
             self.details.experience = self.info_service.experience
@@ -220,6 +222,7 @@ class LLMService:
                 {
                     "full_name": self.details.full_name,
                     "summary": self.details.summary,
+                    "working_style": self.details.working_style,
                     "skills": self.details.skills,
                     "languages": self.details.languages,
                     "experience": self.details.experience,
@@ -290,6 +293,7 @@ class LLMService:
                 {
                     "full_name": self.details.full_name,
                     "summary": self.details.summary,
+                    "working_style": self.details.working_style,
                     "skills": self.details.skills,
                     "languages": self.details.languages,
                     "experience": self.details.experience,

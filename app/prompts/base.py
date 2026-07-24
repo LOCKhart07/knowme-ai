@@ -56,6 +56,10 @@ Bio/Summary:
 
 {{ summary }}
 
+Working Style:
+
+{{ working_style }}
+
 Skills:
 
 {{ skills }}

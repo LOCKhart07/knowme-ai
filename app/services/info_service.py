@@ -108,6 +108,7 @@ class InfoService:
             }
             profilebanner {
                 profileSummary
+                workingStyle
             }
             allAwards {
                 title
@@ -149,6 +150,7 @@ class InfoService:
         )
         self.full_name = self._extract_name()
         self.summary = self._extract_summary()
+        self.working_style = self._extract_working_style()
         self.languages = self._extract_languages()
 
     def _extract_resume_text(self) -> Optional[str]:
@@ -302,6 +304,9 @@ class InfoService:
 
     def _extract_summary(self):
         return self.data.get("data", {}).get("profilebanner", {}).get("profileSummary")
+
+    def _extract_working_style(self):
+        return self.data.get("data", {}).get("profilebanner", {}).get("workingStyle")
 
     def _extract_languages(self):
         # TODO: Add languages from DatoCMS
