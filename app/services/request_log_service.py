@@ -41,29 +41,37 @@ class RequestLogService:
                 CREATE TABLE IF NOT EXISTS chat_requests (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     message_id TEXT,
+                    conversation_id TEXT,
                     query TEXT NOT NULL,
                     response TEXT,
                     created_at TEXT NOT NULL
                 )
                 """
             )
+            columns = {
+                row[1] for row in conn.execute("PRAGMA table_info(chat_requests)")
+            }
+            if "conversation_id" not in columns:
+                conn.execute("ALTER TABLE chat_requests ADD COLUMN conversation_id TEXT")
 
     def log(
         self,
         query: str,
         response: str,
         message_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
     ) -> None:
         try:
             with self._connect() as conn:
                 conn.execute(
                     """
                     INSERT INTO chat_requests
-                        (message_id, query, response, created_at)
-                    VALUES (?, ?, ?, ?)
+                        (message_id, conversation_id, query, response, created_at)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
                     (
                         str(message_id) if message_id else None,
+                        str(conversation_id) if conversation_id else None,
                         query,
                         response,
                         datetime.now(UTC).isoformat(),

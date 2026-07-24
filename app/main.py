@@ -94,7 +94,10 @@ async def process_query_complete(query_request: QueryRequest) -> QueryResponse:
         response, history, message_id = await llm_service.process_query(
             query_request.query, query_request.history, query_request.message_id
         )
-        request_log_service.log(query_request.query, response, str(message_id))
+        conversation_id = history.messages[0].message_id
+        request_log_service.log(
+            query_request.query, response, str(message_id), str(conversation_id)
+        )
         return QueryResponse(
             response=response,
             history=history,
@@ -139,8 +142,16 @@ async def process_query_stream(query_request: QueryRequest):
                     is_final=is_final,
                     request_id=query_request.message_id,
                 ).model_dump_json() + "\n"
+            history = query_request.history
+            if history and history.messages:
+                conversation_id = history.messages[0].message_id
+            else:
+                conversation_id = query_request.message_id or last_message_id
             request_log_service.log(
-                query_request.query, full_response, str(last_message_id)
+                query_request.query,
+                full_response,
+                str(last_message_id),
+                str(conversation_id),
             )
 
         return StreamingResponse(
