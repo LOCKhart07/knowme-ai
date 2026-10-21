@@ -3,6 +3,7 @@ services:
     container_name: knowme-ai
     image: ghcr.io/lockhart07/knowme-ai:latest
     pull_policy: always
+    restart: unless-stopped
     tty: true
     stdin_open: true
     network_mode: host
